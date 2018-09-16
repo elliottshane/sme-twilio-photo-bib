@@ -1,0 +1,105 @@
+const twilio = require('twilio');
+const urlUtil = require('url');
+const client = new Twilio(process.env.ACCOUNT_SID, process.env.AUTH_TOKEN);
+const sync = client.sync.services(process.env.SYNC_SERVICE_SID).syncLists('wscData');
+
+exports.handler = function(context, event, callback) {
+    function createConfig(mediaItem){
+
+  return new Promise(function(resolve,reject){
+    sync
+        .syncListItems
+        .create({
+            data: mediaItem
+        })
+        .then(function(item){
+            mediaItem.id = item.index;
+            sync.syncListItems(item.index)
+                .update({ data: mediaItem });
+                resolve(mediaItem);
+        }).catch(function(error){
+          console.log(error);
+          reject(error);
+        });
+      });
+}
+async function handleIncomingSMS(event) {
+  const twiml = new twilio.twiml.MessagingResponse();
+  const  body  = event;
+  
+  if(isNaN(body.Body)){
+    twiml.message("Please enter Bib Number only Entered: "+ body.Body);
+   // res.send(twiml.toString());
+   
+   callback(null, twiml);
+   //return 'Please enter Bib Number only Entered: ' +   body.Body
+   }
+  else{
+  if (body.NumMedia !== "0") {
+   
+   const { NumMedia, MessageSid } = body;
+   let saveOperations = [];
+   const mediaItems = [];
+
+ for (var i = 0; i < NumMedia; i++) { 
+   console.log(i);
+   console.log('nummedia ' + NumMedia)
+   const imageNum = i;
+   const mediaUrl = body[`MediaUrl${i}`];
+   const contentType = body[`MediaContentType${i}`];
+   //const mediaSid = path.basename(urlUtil.parse(mediaUrl).pathname);
+   const mediaSid = urlUtil.parse(mediaUrl).pathname;
+   const bib = body.Body;
+   const downloaded = "0"
+    mediaItems.push({ bib, imageNum,mediaSid, MessageSid, mediaUrl ,contentType, downloaded });  
+ }
+ 
+ saveOperations = mediaItems.map(mediaItem => createConfig(mediaItem));
+ try {
+ await Promise.all(saveOperations);
+ }
+ catch(error){
+     console.log(error);
+ }
+
+  twiml.message("Thanks for the " + NumMedia + " photo(s) of the setup for Bib Number: "+ body.Body);
+  // res.send(twiml.toString());
+  
+  //return 'Thanks for the ' + NumMedia + ' photo(s) of the setup for Bib Number'+ body.Body
+    callback(null, twiml);
+  } else {
+     if (body.Body !== null) {
+       let bib = body.Body;
+       console.log("[1]" + bib);
+       sync.syncListItems
+         .list()
+         .then(
+           function(wscListData) {
+             var currentImg = wscListData.filter(function(item) {return (item.data.bib === bib);})
+             const newResp = twiml.message();
+             newResp.body(body.Body);
+             currentImg.forEach(element => {
+              console.log(element.data)
+                  if (element.data.mediaUrl) { 
+                    console.log('[3]');
+                      newResp.media(element.data.mediaUrl);                       
+                      }                          
+                   });                                                  
+                    //res.send(twiml.toString());   
+                    callback(null,twiml);
+                   })                            
+                   .catch(function(error) {                                
+                         console.log(error);
+                     });
+         }
+ }
+}
+}
+  
+	let twiml = new Twilio.twiml.MessagingResponse();
+	
+	var resp = handleIncomingSMS(event);
+	twiml.message(resp);
+	// twiml.say("Hello World");
+	//callback(null, twiml);
+};

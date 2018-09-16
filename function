@@ -1,7 +1,7 @@
 const twilio = require('twilio');
 const urlUtil = require('url');
 const client = new Twilio(process.env.ACCOUNT_SID, process.env.AUTH_TOKEN);
-const sync = client.sync.services(process.env.SYNC_SERVICE_SID).syncLists('wscData');
+const sync = client.sync.services(process.env.SYNC_SERVICE_SID).syncLists('xxx');
 
 exports.handler = function(context, event, callback) {
     function createConfig(mediaItem){
@@ -74,8 +74,8 @@ async function handleIncomingSMS(event) {
        sync.syncListItems
          .list()
          .then(
-           function(wscListData) {
-             var currentImg = wscListData.filter(function(item) {return (item.data.bib === bib);})
+           function(ListData) {
+             var currentImg = ListData.filter(function(item) {return (item.data.bib === bib);})
              const newResp = twiml.message();
              newResp.body(body.Body);
              currentImg.forEach(element => {
